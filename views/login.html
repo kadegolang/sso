@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录表单</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+
+        input[type=text], input[type=password] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            margin: 8px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            display: inline-block;
+            font-size: 16px;
+        }
+
+        canvas {
+            /* prevent interaction with the canvas */
+            pointer-events: none;
+            margin-top: 10px;
+        }
+
+        #error-message {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body onload="createCaptcha()">
+    <form id="loginForm" onsubmit="validateCaptchaAndSubmit()">
+        <label for="username">用户名：</label>
+        <input type="text" id="username" name="username" required><br>
+
+        <label for="password">密码：</label>
+        <input type="password" id="password" name="password" required><br>
+
+        <div id="captcha"></div>
+        <input type="text" placeholder="请输入验证码" id="captchaTextBox">
+
+        <button type="submit">登录</button>
+        <button type="button" onclick="refreshCaptcha()">刷新验证码</button> <!-- Add the refresh button -->
+        <div id="error-message"></div> <!-- Element to display error message -->
+    </form>
+
+    <script>
+        var code;
+        var captchaValid = true; // Flag to track whether the captcha is valid
+
+        function submitForm() {
+            // Check if captcha is valid before making the login request
+            if (captchaValid) {
+                var form = document.getElementById("loginForm");
+                var formData = new FormData(form);
+
+                // 创建一个 URLSearchParams 对象，用于编码数据
+                var encodedData = new URLSearchParams(formData);
+
+                fetch('http://localhost:8080/api/v1/tokens/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: encodedData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // 处理来自服务器的响应
+                    console.log(data);
+                })
+                .catch(error => {
+                    console.error('错误:', error);
+                });
+            } else {
+                // Provide feedback for invalid captcha
+                showError("Invalid Captcha. Try Again");
+                createCaptcha();
+            }
+        }
+
+        function createCaptcha() {
+            //clear the contents of captcha div first 
+            document.getElementById('captcha').innerHTML = "";
+            var charsArray =
+                "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ@!#$%^&*";
+            var lengthOtp = 6;
+            var captcha = [];
+            for (var i = 0; i < lengthOtp; i++) {
+                //below code will not allow Repetition of Characters
+                var index = Math.floor(Math.random() * charsArray.length + 1); //get the next character from the array
+                if (captcha.indexOf(charsArray[index]) == -1)
+                    captcha.push(charsArray[index]);
+                else i--;
+            }
+            var canv = document.createElement("canvas");
+            canv.id = "captcha";
+            canv.width = 100;
+            canv.height = 50;
+            var ctx = canv.getContext("2d");
+            ctx.font = "25px Georgia";
+            ctx.strokeText(captcha.join(""), 0, 30);
+            //storing captcha so that can validate you can save it somewhere else according to your specific requirements
+            code = captcha.join("").toLowerCase(); // Convert the code to lowercase
+            document.getElementById("captcha").appendChild(canv); // adds the canvas to the body element
+        }
+
+        function refreshCaptcha() {
+            createCaptcha(); // Call the createCaptcha function to refresh the captcha
+        }
+
+        function validateCaptchaAndSubmit() {
+            event.preventDefault();
+
+            var userInput = document.getElementById("captchaTextBox").value.toLowerCase(); // Convert user input to lowercase
+
+            if (userInput === code) {
+                // Valid Captcha
+                captchaValid = true;
+                submitForm(); // Execute login only if captcha is valid
+                showError(""); // Clear error message
+            } else {
+                // Invalid Captcha
+                captchaValid = false;
+                showError("验证码错误，请重新输入");
+                createCaptcha();
+            }
+        }
+
+        function showError(message) {
+            // Display error message
+            document.getElementById("error-message").innerText = message;
+        }
+    </script>
+</body>
+</html>
